@@ -37,6 +37,9 @@
 #define NUM_A2A_TESTS 10000
 #define NUM_A2A_ITERS 64
 
+#define AG_MSG_COUNT 16384
+#define BCAST_MSG_COUNT 16384
+
 /* test specific tuning */
 #define BW_MSG_COUNT 16384
 #define BW_OUTSTANDING 8
@@ -125,7 +128,7 @@ int main(int argc, char* argv[])
      int *allnodes;
 
      init_mpi(&test_config, &nodes, &argc, &argv, BW_MSG_COUNT, BW_MSG_COUNT, A2A_MSG_COUNT,
-              1, 1, 1, BW_OUTSTANDING);
+              1, 1, 1, BW_OUTSTANDING, AG_MSG_COUNT, BCAST_MSG_COUNT);
 
      if (nodes.nnodes < 2) {
           if (test_config.myrank == 0) {

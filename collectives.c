@@ -137,3 +137,110 @@ int allreduce_test(CommConfig_t *config, int ntests, int niters, MPI_Comm comm,
 
      return 0;
 }
+
+int ag_test(CommConfig_t *config, int ntests, int niters, MPI_Comm comm, 
+            MPI_Comm global_comm, CommResults_t * results)
+{
+     double *sbuf, *rbuf;
+     int i, j, ntot_iters;
+     double bt1, bt2, bt, perfval[1], *perfvals;
+     struct timespec t1, t2;
+     double timeout_t1, timeout;
+
+     perfvals = malloc(sizeof(double) * ntests * niters);
+     if (perfvals == NULL) {
+          die("Failed to allocate perfvals in allreduce_test()\n");
+     }
+
+     timeout_t1 = MPI_Wtime();
+     timeout    = 0.;
+     ntot_iters = 0;
+     bt = 0.;
+     for (j = 0; j < ntests; j++) {
+
+          /* check if we need to timeout this test because it is running too long */
+          timeout = MPI_Wtime() - timeout_t1;
+          mpi_error(MPI_Allreduce(MPI_IN_PLACE, &timeout, 1, MPI_DOUBLE, MPI_MIN, global_comm));
+          if (TEST_TIMEOUT_SECS <= timeout) continue;
+
+          for (i = -1; i < niters; i++) {
+               if (i == 0) bt1 = MPI_Wtime();
+               if (i >= 0) clock_gettime(CLOCK_MONOTONIC, &t1);
+
+               mpi_error(MPI_Allgather(&config->ag_sbuffer[0], config->ag_sbuffer_cnt, MPI_DOUBLE, 
+                                       &config->ag_rbuffer[0], config->ag_sbuffer_cnt, MPI_DOUBLE, 
+                                       comm));
+               if (i >= 0) {
+                    clock_gettime(CLOCK_MONOTONIC, &t2);
+                    perfvals[j*niters + i] = 1e-3 * (double)(BILL * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec));
+               }
+
+          }
+          bt2 = MPI_Wtime();
+          bt += bt2 - bt1;
+          ntot_iters += niters;
+     }
+
+     /* we report operation latency */
+     perfval[0] = 1.0e6 * bt / (double)ntot_iters;
+     mpi_error(MPI_Barrier(global_comm));
+
+     summarize_performance(config, perfvals, perfval, ntot_iters, 1, 1, global_comm, results);
+
+     free(perfvals);
+
+     return 0;
+}
+
+int bcast_victim_test(CommConfig_t *config, int ntests, int niters, MPI_Comm comm, 
+                      MPI_Comm global_comm, CommResults_t * results)
+{
+     double *sbuf, *rbuf;
+     int i, j, ntot_iters;
+     double bt1, bt2, bt, perfval[1], *perfvals;
+     struct timespec t1, t2;
+     double timeout_t1, timeout;
+
+     perfvals = malloc(sizeof(double) * ntests * niters);
+     if (perfvals == NULL) {
+          die("Failed to allocate perfvals in allreduce_test()\n");
+     }
+
+     timeout_t1 = MPI_Wtime();
+     timeout    = 0.;
+     ntot_iters = 0;
+     bt = 0.;
+     for (j = 0; j < ntests; j++) {
+
+          /* check if we need to timeout this test because it is running too long */
+          timeout = MPI_Wtime() - timeout_t1;
+          mpi_error(MPI_Allreduce(MPI_IN_PLACE, &timeout, 1, MPI_DOUBLE, MPI_MIN, global_comm));
+          if (TEST_TIMEOUT_SECS <= timeout) continue;
+
+          for (i = -1; i < niters; i++) {
+               if (i == 0) bt1 = MPI_Wtime();
+               if (i >= 0) clock_gettime(CLOCK_MONOTONIC, &t1);
+
+               mpi_error(MPI_Bcast(&config->bcast_buffer[0], config->bcast_victim_cnt, MPI_DOUBLE, 0, comm));
+               if (i >= 0) {
+                    clock_gettime(CLOCK_MONOTONIC, &t2);
+                    perfvals[j*niters + i] = 1e-3 * (double)(BILL * (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec));
+               }
+
+          }
+          bt2 = MPI_Wtime();
+          bt += bt2 - bt1;
+          ntot_iters += niters;
+     }
+
+     /* we report operation latency */
+     perfval[0] = 1.0e6 * bt / (double)ntot_iters;
+     mpi_error(MPI_Barrier(global_comm));
+
+     summarize_performance(config, perfvals, perfval, ntot_iters, 1, 1, global_comm, results);
+
+     free(perfvals);
+
+     return 0;
+}
+

@@ -55,7 +55,7 @@ int cstring_cmp(const void *a, const void *b)
 
 /* initialize MPI, detect node+rank layout, and setup various testing options  */
 int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, int rmacnt, int p2pcnt,
-             int a2acnt, int incastcnt, int bcastcnt, int allreducecnt, int bw_outstanding)
+             int a2acnt, int incastcnt, int bcastcnt, int allreducecnt, int bw_outstanding, int agcnt, int bcastvictcnt)
 {
      int i, ierr, nranks, hname_len;
      char local_hname[MPI_MAX_PROCESSOR_NAME], last_hname[MPI_MAX_PROCESSOR_NAME];
@@ -68,6 +68,8 @@ int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, 
      config->ar_cnt         = allreducecnt;
      config->incast_cnt     = incastcnt;
      config->bcast_cnt      = bcastcnt;
+     config->ag_sbuffer_cnt = agcnt;
+     config->bcast_victim_cnt = bcastvictcnt;
      config->rma_window     = MPI_WIN_NULL;
      config->rma_a2a_window = MPI_WIN_NULL;
      config->p2p_buffer     = NULL;
@@ -75,6 +77,9 @@ int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, 
      config->a2a_rbuffer    = NULL;
      config->ar_sbuffer     = NULL;
      config->ar_rbuffer     = NULL;
+     config->ag_rbuffer     = NULL;
+     config->ag_sbuffer     = NULL;
+     config->bcast_buffer   = NULL;
 
      mpi_error(MPI_Init(argc, argv));
      mpi_error(MPI_Comm_rank(MPI_COMM_WORLD, &config->myrank));
@@ -276,6 +281,9 @@ int finalize_mpi(CommConfig_t *config, CommNodes_t *nodes)
      if (config->a2a_rbuffer != NULL) MPI_Free_mem(config->a2a_rbuffer);
      if (config->ar_sbuffer != NULL ) MPI_Free_mem(config->ar_sbuffer);
      if (config->ar_rbuffer != NULL ) MPI_Free_mem(config->ar_rbuffer);
+     if (config->ag_sbuffer != NULL ) MPI_Free_mem(config->ag_sbuffer);
+     if (config->ag_rbuffer != NULL ) MPI_Free_mem(config->ag_rbuffer);
+     if (config->bcast_buffer != NULL ) MPI_Free_mem(config->bcast_buffer);
      mpi_error(MPI_Finalize());
 
      return 0;
@@ -318,6 +326,53 @@ int a2a_buffers(CommConfig_t *config, MPI_Comm comm)
 
      memset(config->a2a_sbuffer, 0, length);
      memset(config->a2a_rbuffer, 0, length);
+
+     return 0;
+}
+
+/* separate allocation for Alltoall buffers since they are optional and large */
+int ag_buffers(CommConfig_t *config, MPI_Comm comm)
+{
+     int ierr, comm_size, count;
+
+     count = config->ag_sbuffer_cnt;
+     if (config->incast_cnt > count) count = config->incast_cnt;
+
+     mpi_error(MPI_Comm_size(comm, &comm_size));
+     MPI_Aint length = sizeof(double) * count * comm_size;
+
+     ierr = MPI_Alloc_mem(length, MPI_INFO_NULL, &config->ag_sbuffer);
+     if (ierr != MPI_SUCCESS) {
+          die("Failed to allocate ag_sbuffer in ag_buffers()\n");
+     }
+     ierr = MPI_Alloc_mem(length, MPI_INFO_NULL, &config->ag_rbuffer);
+     if (ierr != MPI_SUCCESS) {
+          die("Failed to allocate ag_rbuffer in ag_buffers()\n");
+     }
+
+     memset(config->ag_sbuffer, 0, length);
+     memset(config->ag_rbuffer, 0, length);
+
+     return 0;
+}
+
+/* separate allocation for Broadcast buffers since they are optional and large */
+int bcast_victim_buffers(CommConfig_t *config, MPI_Comm comm)
+{
+     int ierr, comm_size, count;
+
+     count = config->bcast_victim_cnt;
+     if (config->incast_cnt > count) count = config->incast_cnt;
+
+     mpi_error(MPI_Comm_size(comm, &comm_size));
+     MPI_Aint length = sizeof(double) * count * comm_size;
+
+     ierr = MPI_Alloc_mem(length, MPI_INFO_NULL, &config->bcast_buffer);
+     if (ierr != MPI_SUCCESS) {
+          die("Failed to allocate bcast_buffer\n");
+     }
+
+     memset(config->bcast_buffer, 0, length);
 
      return 0;
 }
@@ -461,6 +516,12 @@ int print_header(CommConfig_t *config, int type, CommTest_t ntype)
                     break;
                case A2A_BANDWIDTH:
                     snprintf(nname, nl, "Multiple Alltoall");
+                    break;
+               case AG_LATENCY:
+                    snprintf(nname, nl, "Allgather Lat");
+                    break;
+               case BCAST_VICTIM_LATENCY:
+                    snprintf(nname, nl, "Bcast Victim Lat");
                     break;
                default:
                     break;
@@ -733,6 +794,12 @@ int create_perf_filename(CommTest_t req_test, CommTest_t other_test, int isbasel
      case TEST_CONGESTORS:
           snprintf(othern, ol, "_with_congestors");
           break;
+     case AG_LATENCY:
+          snprintf(othern, ol, "_with_ag_vict_latency");
+          break;
+     case BCAST_VICTIM_LATENCY:
+          snprintf(othern, ol, "_with_bcast_vict_latency");
+          break;
      default:
           break;
      }
@@ -779,6 +846,12 @@ int create_perf_filename(CommTest_t req_test, CommTest_t other_test, int isbasel
           break;
      case RMA_BCAST_CONGESTOR:
           snprintf(*fname, fl, "get_bcast_congestor%s%s.%s", bases, othern, suffix);
+          break;
+     case AG_LATENCY:
+          snprintf(*fname, fl, "ag_vict_latency%s%s.%s", bases, othern, suffix);
+          break;
+     case BCAST_VICTIM_LATENCY:
+          snprintf(*fname, fl, "bcast_vict_latency%s%s.%s", bases, othern, suffix);
           break;
      default:
           break;
@@ -871,6 +944,14 @@ int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode
      case RMA_BCAST_CONGESTOR:
           snprintf(tname, tl, "get_bcast_congestor");
           snprintf(tunits, tl, "MiB/s");
+          break;
+     case AG_LATENCY:
+          snprintf(tname, tl, "ag_vict_latency");
+          snprintf(tunits, tl, "usec");
+          break;
+     case BCAST_VICTIM_LATENCY:
+          snprintf(tname, tl, "bcast_vict_latency");
+          snprintf(tunits, tl, "usec");
           break;
      default:
           break;

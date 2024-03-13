@@ -69,6 +69,9 @@ typedef struct CommConfig_st {
      double *a2a_rbuffer;
      double *ar_sbuffer;
      double *ar_rbuffer;
+     double *ag_sbuffer;
+     double *ag_rbuffer;
+     double *bcast_buffer;
      MPI_Win rma_window;
      MPI_Win rma_a2a_window;
      int bw_outstanding;
@@ -76,11 +79,14 @@ typedef struct CommConfig_st {
      int rmabw_cnt;
      int a2a_cnt;
      int ar_cnt;
+     int ag_sbuffer_cnt;
+     int bcast_victim_cnt;
      int incast_cnt;
      int bcast_cnt;
      int myrank;
      int nranks;
      int mynode_rank;
+     int seed;
 } CommConfig_t;
 
 typedef enum CommTest_st
@@ -100,7 +106,9 @@ typedef enum CommTest_st
      RMA_BCAST_CONGESTOR,
      ALLREDUCE_CONGESTOR,
      TEST_CONGESTORS,
-     TEST_NULL
+     TEST_NULL,
+     AG_LATENCY,
+     BCAST_VICTIM_LATENCY
 } CommTest_t;
 
 typedef struct CommResults_st {
@@ -139,6 +147,10 @@ int a2a_test(CommConfig_t *config, int ntests, int base_niters, MPI_Comm a2acomm
              MPI_Comm global_comm, CommResults_t * results);
 int allreduce_test(CommConfig_t *config, int ntests, int niters, MPI_Comm comm,
                    MPI_Comm global_comm, CommResults_t * results);
+int ag_test(CommConfig_t *config, int ntests, int base_niters, MPI_Comm ag_comm,
+            MPI_Comm global_comm, CommResults_t * results);
+int bcast_victim_test(CommConfig_t *config, int ntests, int base_niters, MPI_Comm bcast_comm,
+                      MPI_Comm global_comm, CommResults_t * results);
 
 /* subcomms.c */
 int split_subcomms(int nsubcomms, MPI_Comm local_comm, MPI_Comm base_comm, int *color,
@@ -152,11 +164,14 @@ int congestion_subcomms(CommConfig_t *config, CommNodes_t *nodes, int *congestor
 void die(char *errmsg);
 void mpi_error(int ierr);
 int init_mpi(CommConfig_t *config, CommNodes_t *nodes, int *argc, char ***argv, int rmacnt,
-             int p2pcnt, int a2acnt, int incastcnt, int bcastcnt, int allreducecnt, int bw_outstanding);
+             int p2pcnt, int a2acnt, int incastcnt, int bcastcnt, int allreducecnt, int bw_outstanding,
+             int agcnt, int bcastvictcnt);
 int init_rma(CommConfig_t *config, MPI_Comm comm);
 int init_rma_a2a(CommConfig_t *config, MPI_Comm comm);
 int a2a_buffers(CommConfig_t *config, MPI_Comm subcomm);
 int allreduce_buffers(CommConfig_t *config, MPI_Comm comm);
+int ag_buffers(CommConfig_t *config, MPI_Comm comm);
+int bcast_victim_buffers(CommConfig_t *config, MPI_Comm comm);
 void shuffle(int *list, int size, int seed, int call);
 int print_results(CommConfig_t *config, int localrank, int havedata, int from_min,
                   char *name, char *units, CommResults_t * results);
