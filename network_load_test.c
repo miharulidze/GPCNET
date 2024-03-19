@@ -23,7 +23,7 @@
 #define VERSION 1.3
 
 #define NUM_NETWORK_TESTS 5
-#define NUM_CONGESTOR_TESTS 4
+#define NUM_CONGESTOR_TESTS 1
 
 /* loop counts for the various tests */
 #define NUM_LAT_TESTS 10000
@@ -37,10 +37,10 @@
 
 #define NUM_AG_TESTS 1000
 #define NUM_AG_ITERS 200
-#define AG_MSG_COUNT 16384
-#define NUM_BCAST_VICTIM_TESTS 10000
-#define NUM_BCAST_VICTIM_ITERS 200
-#define BCAST_VICTIM_MSG_COUNT 16384
+#define AG_MSG_COUNT 32768
+#define NUM_BCAST_COLL_TESTS 10000
+#define NUM_BCAST_COLL_ITERS 200
+#define BCAST_COLL_MSG_COUNT 32768
 
 /* test specific tuning */
 #define BW_MSG_COUNT 16384
@@ -53,13 +53,13 @@
 #define ALLREDUCE_BASE_NODES 32
 
 /* tuning for congestor tests */
-#define A2A_MSG_COUNT 512
+#define A2A_MSG_COUNT 32768
 #define A2A_TESTS 256
 #define A2A_BASELINE_ITERS 512
 #define ALLREDUCE_MSG_COUNT 819200
 #define ALLREDUCE_TESTS 256
 #define ALLREDUCE_BASELINE_ITERS 512
-#define INCAST_MSG_COUNT 512
+#define INCAST_MSG_COUNT 65536
 #define INCAST_TESTS 256
 #define INCAST_BASELINE_ITERS 512
 #define BCAST_MSG_COUNT 512
@@ -124,18 +124,18 @@ int network_test_setup(CommTest_t req_test, int *ntests, int *nrands, int *niter
           snprintf(tname, nl, "%s (8 B)", "Multiple Allreduce");
           snprintf(tunits, nl, "%s", "usec");
           break;
-     case AG_LATENCY:
+     case AG_COLL:
           *ntests = NUM_AG_TESTS;
           *nrands = 1;
           *niters = NUM_AG_ITERS;
           snprintf(tname, nl, "%s (%4i B)", "Allgather Vict Lat", (int)(sizeof(double)*AG_MSG_COUNT));
           snprintf(tunits, nl, "%s", "usec");
           break;
-     case BCAST_VICTIM_LATENCY:
-          *ntests = NUM_BCAST_VICTIM_TESTS;
+     case BCAST_COLL:
+          *ntests = NUM_BCAST_COLL_TESTS;
           *nrands = 1;
-          *niters = NUM_BCAST_VICTIM_ITERS;
-          snprintf(tname, nl, "%s (%4i B)", "Bcast Vict Lat", (int)(sizeof(double)*BCAST_VICTIM_MSG_COUNT));
+          *niters = NUM_BCAST_COLL_ITERS;
+          snprintf(tname, nl, "%s (%4i B)", "Bcast Vict Lat", (int)(sizeof(double)*BCAST_COLL_MSG_COUNT));
           snprintf(tunits, nl, "%s", "usec");
           break;
      default:
@@ -164,9 +164,9 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
 
      /* allocate the ag/bcast buffers as needed */
      for (itest = 0; itest < NUM_NETWORK_TESTS; itest++) {
-          if (network_tests_list[itest] == AG_LATENCY) {
+          if (network_tests_list[itest] == AG_COLL) {
                ag_buffers(config, test_comm);
-          } else if (network_tests_list[itest] == BCAST_VICTIM_LATENCY) {
+          } else if (network_tests_list[itest] == BCAST_COLL) {
                bcast_victim_buffers(config, test_comm);
           }
      }
@@ -180,9 +180,9 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
 
           if (network_tests_list[itest] == ALLREDUCE_LATENCY) {
                allreduce_test(config, ntests, niters, test_comm, local_comm, &results_base[itest]);
-          } else if (network_tests_list[itest] == BCAST_VICTIM_LATENCY) {
+          } else if (network_tests_list[itest] == BCAST_COLL) {
                bcast_victim_test(config, ntests, niters, test_comm, local_comm, &results_base[itest]);
-          } else if (network_tests_list[itest] == AG_LATENCY) {
+          } else if (network_tests_list[itest] == AG_COLL) {
                ag_test(config, ntests, niters, test_comm, local_comm, &results_base[itest]);
           } else {
                random_ring(config, 0, ntests, nrands, niters, network_tests_list[itest],
@@ -192,8 +192,8 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
           int from_min = 0;
           if (network_tests_list[itest] == P2P_LATENCY || network_tests_list[itest] == RMA_LATENCY ||
               network_tests_list[itest] == ALLREDUCE_LATENCY ||
-              network_tests_list[itest] == BCAST_VICTIM_LATENCY ||
-              network_tests_list[itest] == AG_LATENCY) from_min = 1;
+              network_tests_list[itest] == BCAST_COLL ||
+              network_tests_list[itest] == AG_COLL) from_min = 1;
           print_results(config, myrank, 1, from_min, tname, tunits, &results_base[itest]);
 
           if (myrank == 0) {
@@ -233,9 +233,9 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
 
           if (network_tests_list[itest] == ALLREDUCE_LATENCY) {
                allreduce_test(config, ntests, niters, test_comm, local_comm, &results[itest]);
-          } else if (network_tests_list[itest] == BCAST_VICTIM_LATENCY) {
+          } else if (network_tests_list[itest] == BCAST_COLL) {
                bcast_victim_test(config, ntests, niters, test_comm, local_comm, &results[itest]);
-          } else if (network_tests_list[itest] == AG_LATENCY) {
+          } else if (network_tests_list[itest] == AG_COLL) {
                ag_test(config, ntests, niters, test_comm, local_comm, &results[itest]);
           } else {
                random_ring(config, 0, ntests, nrands, niters, network_tests_list[itest],
@@ -250,8 +250,8 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
           if (network_tests_list[itest] == P2P_LATENCY || 
               network_tests_list[itest] == RMA_LATENCY ||
               network_tests_list[itest] == ALLREDUCE_LATENCY ||
-              network_tests_list[itest] == BCAST_VICTIM_LATENCY ||
-              network_tests_list[itest] == AG_LATENCY) from_min = 1;
+              network_tests_list[itest] == BCAST_COLL ||
+              network_tests_list[itest] == AG_COLL) from_min = 1;
           print_results(config, myrank, 1, from_min, tname, tunits, &results[itest]);
 
           if (myrank == 0) {
@@ -274,13 +274,13 @@ int run_network_tests(CommConfig_t *config, int ncong_tests, MPI_Comm test_comm,
           if (network_tests_list[itest] == P2P_LATENCY || 
               network_tests_list[itest] == P2P_NEIGHBORS ||
               network_tests_list[itest] == ALLREDUCE_LATENCY ||
-              network_tests_list[itest] == AG_LATENCY || 
-              network_tests_list[itest] == BCAST_VICTIM_LATENCY) {
+              network_tests_list[itest] == AG_COLL || 
+              network_tests_list[itest] == BCAST_COLL) {
               network_test_setup(network_tests_list[itest], &ntests, &nrands, &niters, tname, tunits);
                if (network_tests_list[itest] == P2P_LATENCY || 
                    network_tests_list[itest] == ALLREDUCE_LATENCY ||
-                   network_tests_list[itest] == BCAST_VICTIM_LATENCY ||
-                   network_tests_list[itest] == AG_LATENCY) {
+                   network_tests_list[itest] == BCAST_COLL ||
+                   network_tests_list[itest] == AG_COLL) {
                     print_comparison_results(config, myrank, 1, 1, tname, &results_base[itest], &results[itest]);
                } else {
                     print_comparison_results(config, myrank, 1, 0, tname, &results_base[itest], &results[itest]);
@@ -332,6 +332,18 @@ int congestor_test_setup(CommTest_t req_test, int a2aiters, int incastiters, int
           *ntests = bcasttests;
           *niters = bcastiters;
           snprintf(tname, nl, "%s (%i B)", "Get Bcast", (int)(sizeof(double)*BCAST_MSG_COUNT));
+          snprintf(tunits, nl, "%s", "MiB/s/rank");
+          break;
+     case BCAST_COLL_CONGESTOR:
+          *ntests = bcasttests;
+          *niters = bcastiters;
+          snprintf(tname, nl, "%s (%i B)", "Bcast Coll", (int)(sizeof(double)*BCAST_MSG_COUNT));
+          snprintf(tunits, nl, "%s", "MiB/s/rank");
+          break;
+     case AG_COLL_CONGESTOR:
+          *ntests = bcasttests;
+          *niters = bcastiters;
+          snprintf(tname, nl, "%s (%i B)", "Allgather Coll", (int)(sizeof(double)*A2A_MSG_COUNT));
           snprintf(tunits, nl, "%s", "MiB/s/rank");
           break;
      default:
@@ -404,10 +416,11 @@ int run_congestor_tests(CommConfig_t *config, int nntwk_tests, int congestor_set
 
      /* allocate the a2a buffers as needed */
      if (congestor_tests_list[congestor_set] == A2A_CONGESTOR ||
-         congestor_tests_list[congestor_set] == P2P_INCAST_CONGESTOR) {
+         congestor_tests_list[congestor_set] == P2P_INCAST_CONGESTOR ||
+         congestor_tests_list[congestor_set] == AG_COLL_CONGESTOR) {
           a2a_buffers(config, congestor_comm);
      } else if (congestor_tests_list[congestor_set] == ALLREDUCE_CONGESTOR) {
-         allreduce_buffers(config, congestor_comm);
+          allreduce_buffers(config, congestor_comm);
      } else if (congestor_tests_list[congestor_set] == RMA_INCAST_CONGESTOR) {
           init_rma_a2a(config, congestor_comm);
      }
@@ -704,7 +717,7 @@ int main(int argc, char* argv[])
  
      init_mpi(&test_config, &nodes, &argc, &argv, BW_MSG_COUNT, BW_MSG_COUNT, A2A_MSG_COUNT,
               INCAST_MSG_COUNT, BCAST_MSG_COUNT, ALLREDUCE_MSG_COUNT, BW_OUTSTANDING, 
-              AG_MSG_COUNT, BCAST_VICTIM_MSG_COUNT);
+              AG_MSG_COUNT, BCAST_COLL_MSG_COUNT);
 
      if (argc > 1) {
           test_config.seed = atoi(argv[1]);
@@ -733,13 +746,13 @@ int main(int argc, char* argv[])
      network_tests_list[0] = P2P_LATENCY;
      network_tests_list[1] = P2P_NEIGHBORS;
      network_tests_list[2] = ALLREDUCE_LATENCY;
-     network_tests_list[3] = BCAST_VICTIM_LATENCY;
-     network_tests_list[4] = AG_LATENCY;
+     network_tests_list[3] = BCAST_COLL;
+     network_tests_list[4] = AG_COLL;
 
-     congestor_tests_list[0] = A2A_CONGESTOR;
-     congestor_tests_list[1] = P2P_INCAST_CONGESTOR;
-     congestor_tests_list[2] = RMA_INCAST_CONGESTOR;
-     congestor_tests_list[3] = RMA_BCAST_CONGESTOR;
+     congestor_tests_list[0] = AG_COLL_CONGESTOR;//P2P_INCAST_CONGESTOR;//A2A_CONGESTOR;
+     congestor_tests_list[1] = AG_COLL_CONGESTOR;//P2P_INCAST_CONGESTOR;//P2P_INCAST_CONGESTOR;
+     congestor_tests_list[2] = AG_COLL_CONGESTOR;//P2P_INCAST_CONGESTOR;//RMA_INCAST_CONGESTOR;
+     congestor_tests_list[3] = AG_COLL_CONGESTOR;//P2P_INCAST_CONGESTOR;//RMA_BCAST_CONGESTOR;
 
      if (am_congestor) {
 

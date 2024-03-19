@@ -112,6 +112,20 @@ int allreduce_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int com
      return 0;
 }
 
+int bcast_coll_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks)
+{
+     mpi_error(MPI_Bcast(&config->p2p_buffer[0], config->bcast_cnt, MPI_DOUBLE, 0, comm));
+     return 0;
+}
+
+int ag_coll_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks)
+{
+     mpi_error(MPI_Allgather(&config->a2a_sbuffer[0], config->a2a_cnt, MPI_DOUBLE, 
+                             &config->a2a_rbuffer[0], config->a2a_cnt, MPI_DOUBLE, 
+                             comm));
+     return 0;
+}
+
 int rma_incast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks)
 {
      if (myrank != 0) {
@@ -193,6 +207,10 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
                case RMA_BCAST_CONGESTOR:
                     rma_bcast_congestor(config, test_comm, test_myrank, test_nranks);
                     break;
+               case BCAST_COLL_CONGESTOR:
+                    bcast_coll_congestor(config, test_comm, test_myrank, test_nranks);
+               case AG_COLL_CONGESTOR:
+                    ag_coll_congestor(config, test_comm, test_myrank, test_nranks);
                default:
                     break;
                }
@@ -213,7 +231,7 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
 
      if (record_perf) {
 
-          if (req_test == A2A_CONGESTOR) {
+          if (req_test == A2A_CONGESTOR || req_test == AG_COLL_CONGESTOR) {
 
                /* we report uni-directional BW in MiB/s/rank */
                for (i = 0; i < *real_n_measurements*niters; i++) {
@@ -250,7 +268,8 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
                          (bt * 1024. * 1024.);
                }
 
-          } else if (req_test == P2P_BCAST_CONGESTOR || req_test == RMA_BCAST_CONGESTOR) {
+          } else if (req_test == P2P_BCAST_CONGESTOR || req_test == RMA_BCAST_CONGESTOR || 
+                     req_test == BCAST_COLL_CONGESTOR) {
 
                /* we report uni-directional BW in MiB/s/rank */
                if (test_myrank == 0) {

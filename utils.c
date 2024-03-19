@@ -517,10 +517,10 @@ int print_header(CommConfig_t *config, int type, CommTest_t ntype)
                case A2A_BANDWIDTH:
                     snprintf(nname, nl, "Multiple Alltoall");
                     break;
-               case AG_LATENCY:
+               case AG_COLL:
                     snprintf(nname, nl, "Allgather Lat");
                     break;
-               case BCAST_VICTIM_LATENCY:
+               case BCAST_COLL:
                     snprintf(nname, nl, "Bcast Victim Lat");
                     break;
                default:
@@ -794,11 +794,17 @@ int create_perf_filename(CommTest_t req_test, CommTest_t other_test, int isbasel
      case TEST_CONGESTORS:
           snprintf(othern, ol, "_with_congestors");
           break;
-     case AG_LATENCY:
-          snprintf(othern, ol, "_with_ag_vict_latency");
+     case AG_COLL:
+          snprintf(othern, ol, "_with_ag_victim");
           break;
-     case BCAST_VICTIM_LATENCY:
-          snprintf(othern, ol, "_with_bcast_vict_latency");
+     case BCAST_COLL:
+          snprintf(othern, ol, "_with_bcast_victim");
+          break;
+     case AG_COLL_CONGESTOR:
+          snprintf(othern, ol, "_with_ag_congestor");
+          break;
+     case BCAST_COLL_CONGESTOR:
+          snprintf(othern, ol, "_with_bcast_congestor");
           break;
      default:
           break;
@@ -847,11 +853,17 @@ int create_perf_filename(CommTest_t req_test, CommTest_t other_test, int isbasel
      case RMA_BCAST_CONGESTOR:
           snprintf(*fname, fl, "get_bcast_congestor%s%s.%s", bases, othern, suffix);
           break;
-     case AG_LATENCY:
-          snprintf(*fname, fl, "ag_vict_latency%s%s.%s", bases, othern, suffix);
+     case AG_COLL:
+          snprintf(*fname, fl, "ag_victim_latency%s%s.%s", bases, othern, suffix);
           break;
-     case BCAST_VICTIM_LATENCY:
-          snprintf(*fname, fl, "bcast_vict_latency%s%s.%s", bases, othern, suffix);
+     case BCAST_COLL:
+          snprintf(*fname, fl, "bcast_victim_latency%s%s.%s", bases, othern, suffix);
+          break;
+     case AG_COLL_CONGESTOR:
+          snprintf(*fname, fl, "ag_victim_congestor%s%s.%s", bases, othern, suffix);
+          break;
+     case BCAST_COLL_CONGESTOR:
+          snprintf(*fname, fl, "bcast_victim_congestor%s%s.%s", bases, othern, suffix);
           break;
      default:
           break;
@@ -945,12 +957,20 @@ int summarize_pairs_performance(CommConfig_t *config, MPI_Comm comm, char *lnode
           snprintf(tname, tl, "get_bcast_congestor");
           snprintf(tunits, tl, "MiB/s");
           break;
-     case AG_LATENCY:
+     case AG_COLL:
           snprintf(tname, tl, "ag_vict_latency");
           snprintf(tunits, tl, "usec");
           break;
-     case BCAST_VICTIM_LATENCY:
+     case BCAST_COLL:
           snprintf(tname, tl, "bcast_vict_latency");
+          snprintf(tunits, tl, "usec");
+          break;
+     case AG_COLL_CONGESTOR:
+          snprintf(tname, tl, "ag_cong_latency");
+          snprintf(tunits, tl, "usec");
+          break;
+     case BCAST_COLL_CONGESTOR:
+          snprintf(tname, tl, "bcast_cong_latency");
           snprintf(tunits, tl, "usec");
           break;
      default:

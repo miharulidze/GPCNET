@@ -107,8 +107,10 @@ typedef enum CommTest_st
      ALLREDUCE_CONGESTOR,
      TEST_CONGESTORS,
      TEST_NULL,
-     AG_LATENCY,
-     BCAST_VICTIM_LATENCY
+     AG_COLL,
+     BCAST_COLL,
+     AG_COLL_CONGESTOR,
+     BCAST_COLL_CONGESTOR
 } CommTest_t;
 
 typedef struct CommResults_st {
@@ -192,5 +194,7 @@ int congestor(CommConfig_t *config, int n_measurements, int niters, MPI_Comm tes
               int record_perf, double * perfvals, double * perfval, int *real_n_measurements);
 int p2p_incast_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks);
 int a2a_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks);
+int bcast_coll_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks);
+int ag_coll_congestor(CommConfig_t *config, MPI_Comm comm, int myrank, int comm_ranks);
 
 #endif
